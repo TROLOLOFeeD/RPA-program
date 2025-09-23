@@ -80,7 +80,6 @@ try:
         exit()
 
     if ADD_FIRST_PRODUCT:
-        # Находим кнопку "Add to cart" у первого товара
         first_product = products[0]
         add_button = first_product.find_element(By.TAG_NAME, "button")
         product_name = first_product.find_element(By.CLASS_NAME, "inventory_item_name").text
