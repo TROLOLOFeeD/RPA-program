@@ -1,8 +1,11 @@
+import os
 import sqlite3
 import random
 from datetime import datetime, timedelta
 
-# Списки для генерации данных
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'company_data.db')
+
 project_names = [
     "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta",
     "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi", "Omicron", "Pi", "Rho",
@@ -27,7 +30,6 @@ managers = [
     "Владимир Белов", "Анастасия Орлова", "Григорий Фёдоров", "Виктория Швецова"
 ]
 
-# Генерация 100+ записей
 records = []
 start_date = datetime(2025, 1, 1)
 end_date = datetime(2027, 12, 31)
@@ -37,14 +39,12 @@ for i in range(1, 101):
     manager = random.choice(managers)
     budget = random.randint(50000, 2000000)
     spent = random.randint(0, budget)
-    # Случайная дата между 2025 и 2027 годами
     deadline = start_date + timedelta(days=random.randint(0, (end_date - start_date).days))
     deadline_str = deadline.strftime('%Y-%m-%d')
     
     records.append((i, project_name, manager, budget, spent, deadline_str))
 
-# Создание БД и таблицы
-conn = sqlite3.connect('company_data.db')
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 cursor.execute('''
@@ -58,7 +58,6 @@ cursor.execute('''
     )
 ''')
 
-# Вставка данных
 cursor.executemany('''
     INSERT INTO Projects (project_id, project_name, manager, budget, spent, deadline)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -66,5 +65,3 @@ cursor.executemany('''
 
 conn.commit()
 conn.close()
-
-"База данных 'company_data.db' успешно создана с 100 записями в таблице 'Projects'."
