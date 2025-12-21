@@ -10,6 +10,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 from bot_read import process_requests
+from email_notifier import send_failure_email
 
 # === Настройки ===
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -73,6 +74,8 @@ def main():
                 print(f"Необработанная ошибка: {e}")
 
             if not success and running:
+                if retry_count == len(retry_delays) - 1:
+                    send_failure_email(drive, f"Ошибка при обработке заявок:\n")
                 delay = retry_delays[retry_count]
                 print(f"Повтор через {delay // 60} мин...")
                 time.sleep(delay)

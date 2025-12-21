@@ -172,44 +172,6 @@ def generate_invoice(
 
         print(f"☁️ PDF загружен в Google Drive (ID: {uploaded_file.get('id')})")
 
-        try:
-            user_info = drive_service.about().get(fields="user").execute()
-            user_email = user_info['user']['emailAddress']
-
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
-            import base64
-
-            message = MIMEMultipart()
-            message['to'] = user_email
-            message['subject'] = f"✅ Накладная создана: {pdf_name}"
-            body = f"""
-            Успешно создана и загружена накладная.
-
-            Дата: {date_val}
-            Склад отправления: {sender_warehouse}
-            Склад назначения: {receiver_warehouse}
-            Приёмщик: {receiver_fio}
-            Позиций: {len(items)}
-
-            Номер накладной: {new_num}
-            ID файла в Google Drive: {uploaded_file.get('id')}
-            """
-            message.attach(MIMEText(body, 'plain'))
-
-            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-
-            gmail_service = build('gmail', 'v1', credentials=drive_service._http.credentials)
-            gmail_service.users().messages().send(
-                userId='me',
-                body={'raw': raw_message}
-            ).execute()
-
-            print(f"Уведомление отправлено на {user_email}")
-
-        except Exception as e:
-            print(f"Не удалось отправить email: {e}")
-
         return f"drive_id:{uploaded_file.get('id')}"
     
     except Exception as e:
