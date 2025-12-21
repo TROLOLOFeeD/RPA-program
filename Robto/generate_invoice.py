@@ -26,13 +26,11 @@ def generate_invoice(
     Возвращает путь к PDF или None при ошибке
     """
 
-    # --- 1. Получить номер накладной ---
     counter_path = os.path.join(os.path.dirname(__file__), 'счётчик.txt')
 
-    # Если файла нет — создаём с начальным значением
     if not os.path.exists(counter_path):
         with open(counter_path, 'w', encoding='utf-8') as f:
-            f.write("0")  # или "0", если хочешь начать с 1
+            f.write("0")
         print(f"🆕 Файл счётчика создан: {counter_path}")
 
     try:
@@ -43,7 +41,7 @@ def generate_invoice(
         print(f"❌ Ошибка чтения счётчика: {e}")
         return None
 
-    # --- 2. Заполнить шаблон Word ---
+    # --- Создание накладной ---
     template_path = os.path.join(os.path.dirname(__file__), 'Шаблоны', 'Шаблон_накладной.docx')
     if not os.path.exists(template_path):
         print("❌ Шаблон накладной не найден")
@@ -51,13 +49,11 @@ def generate_invoice(
 
     doc = Document(template_path)
 
-    # Замена меток во всём документе — в параграфах и таблицах
+    # Замена меток во всём документе
     def replace_text_in_doc(doc, old, new):
-        # Параграфы
         for paragraph in doc.paragraphs:
             if old in paragraph.text:
                 paragraph.text = paragraph.text.replace(old, new)
-        # Таблицы
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
@@ -70,14 +66,11 @@ def generate_invoice(
     replace_text_in_doc(doc, "{{receiver_warehouse}}", receiver_warehouse)
     replace_text_in_doc(doc, "{{receiver_fio}}", receiver_fio)
 
-    # Заполнение таблицы — начинаем со второй строки (индекс 1)
     table = doc.tables[0]
 
-    # Убедимся, что есть минимум 2 строки (заголовки + данные)
     while len(table.rows) < 2:
         table.add_row()
 
-    # Первую строку данных заполняем напрямую
     first_row = table.rows[1]
     first_row.cells[0].text = items[0]["num"]
     first_row.cells[1].text = items[0]["name"]
@@ -85,19 +78,15 @@ def generate_invoice(
     first_row.cells[3].text = items[0]["price"]
     first_row.cells[4].text = items[0]["total"]
 
-    # Если есть дополнительные позиции — добавляем их
     for item in items[1:]:
-        # Добавляем новую строку
         new_row = table.add_row()
     
-        # Заполняем текст
         new_row.cells[0].text = item["num"]
         new_row.cells[1].text = item["name"]
         new_row.cells[2].text = item["qty"]
         new_row.cells[3].text = item["price"]
         new_row.cells[4].text = item["total"]
     
-        # === КОПИРУЕМ ФОРМАТИРОВАНИЕ ИЗ ПЕРВОЙ СТРОКИ ДАННЫХ ===
         source_cells = first_row.cells
         target_cells = new_row.cells
     
@@ -105,15 +94,12 @@ def generate_invoice(
             src_cell = source_cells[i]
             tgt_cell = target_cells[i]
         
-            # Копируем форматирование параграфа (все ключевые параметры)
             if src_cell.paragraphs and tgt_cell.paragraphs:
                 src_para = src_cell.paragraphs[0]
                 tgt_para = tgt_cell.paragraphs[0]
             
-                # Копируем выравнивание
                 tgt_para.alignment = src_para.alignment
             
-                # Копируем отступы
                 pf = tgt_para.paragraph_format
                 spf = src_para.paragraph_format
                 pf.left_indent = spf.left_indent
@@ -124,59 +110,40 @@ def generate_invoice(
                 pf.line_spacing = spf.line_spacing
                 pf.line_spacing_rule = spf.line_spacing_rule
             
-                # Копируем стиль (если есть)
                 if src_para.style:
                     tgt_para.style = src_para.style
 
-        # === ОПЦИОНАЛЬНО: копируем границы ячеек (если они есть) ===
-        # В Word границы таблицы обычно применяются ко всей таблице,
-        # поэтому если первая строка имеет границы — новые строки их унаследуют автоматически.
-        # Если нет — см. примечание ниже.
-
-    # Сохранить временный DOCX
     temp_docx_path = os.path.join(os.path.dirname(__file__), f'Накладная_{new_num}.docx')
     doc.save(temp_docx_path)
-
-    # --- 3. Экспорт в PDF ---
-    # Используем Google Drive API для конвертации (если нет docx2pdf)
-    # Или можно использовать docx2pdf — но требует установки
-
-    # Альтернатива: загрузить DOCX в Drive → экспортировать в PDF → скачать
-    # Но проще — если у тебя есть возможность — установи `pip install docx2pdf`
 
     try:
         from docx2pdf import convert
         pdf_path = temp_docx_path.replace('.docx', '.pdf')
         convert(temp_docx_path, pdf_path)
-        os.remove(temp_docx_path)  # удаляем временный DOCX
+        os.remove(temp_docx_path)
     except ImportError:
-        print("⚠️ Модуль docx2pdf не установлен — используем загрузку в Drive")
-        # Здесь можно реализовать загрузку DOCX в Drive и экспорт через API
-        # Пока пропустим — если нужна детализация — скажи.
+        print("Модуль docx2pdf не установлен — используем загрузку в Drive")
         return None
 
-    # --- 4. Переименовать PDF и сохранить в папку "Накладные" ---
     pdf_name = f"Накладная {date_val}-{new_num}_{sender_warehouse}-{receiver_warehouse}.pdf"
     pdf_final_path = os.path.join(os.path.dirname(__file__), 'Накладные', pdf_name)
 
-    # Убедимся, что папка существует
     os.makedirs(os.path.dirname(pdf_final_path), exist_ok=True)
     os.rename(pdf_path, pdf_final_path)
 
-    # --- 5. Обновить счётчик ---
     with open(counter_path, 'w', encoding='utf-8') as f:
         f.write(str(new_num))
 
-    print(f"✅ Накладная сгенерирована: {pdf_name}")
+    print(f"Накладная сгенерирована: {pdf_name}")
 
-    # --- 6. Загрузка в Google Drive ---
+    # --- Загрузка в Google Drive ---
     def find_subfolder_by_name(drive_service, parent_id, name):
         safe_name = name.replace("'", "\\'")
         query = f"name = '{safe_name}' and mimeType = 'application/vnd.google-apps.folder' and '{parent_id}' in parents"
         results = drive_service.files().list(
             q=query,
             fields="files(id, name)",
-            supportsAllDrives=True  # ← Добавлено!
+            supportsAllDrives=True
         ).execute()
         folders = results.get('files', [])
         if len(folders) != 1:
@@ -186,7 +153,6 @@ def generate_invoice(
     from googleapiclient.http import MediaFileUpload
 
     try:
-        # Найти папку "Накладные" внутри RPA
         invoices_folder_id = find_subfolder_by_name(drive_service, rpa_folder_id, 'Накладные')
     
         file_metadata = {
@@ -197,18 +163,55 @@ def generate_invoice(
 
         media = MediaFileUpload(pdf_final_path, mimetype='application/pdf')
 
-        # Загрузка с поддержкой всех дисков (включая "Мой диск")
         uploaded_file = drive_service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id',
-            supportsAllDrives=True  # ← ВАЖНО!
+            supportsAllDrives=True
         ).execute()
 
         print(f"☁️ PDF загружен в Google Drive (ID: {uploaded_file.get('id')})")
 
-        return f"drive_id:{uploaded_file.get('id')}"
+        try:
+            user_info = drive_service.about().get(fields="user").execute()
+            user_email = user_info['user']['emailAddress']
 
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            import base64
+
+            message = MIMEMultipart()
+            message['to'] = user_email
+            message['subject'] = f"✅ Накладная создана: {pdf_name}"
+            body = f"""
+            Успешно создана и загружена накладная.
+
+            Дата: {date_val}
+            Склад отправления: {sender_warehouse}
+            Склад назначения: {receiver_warehouse}
+            Приёмщик: {receiver_fio}
+            Позиций: {len(items)}
+
+            Номер накладной: {new_num}
+            ID файла в Google Drive: {uploaded_file.get('id')}
+            """
+            message.attach(MIMEText(body, 'plain'))
+
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+
+            gmail_service = build('gmail', 'v1', credentials=drive_service._http.credentials)
+            gmail_service.users().messages().send(
+                userId='me',
+                body={'raw': raw_message}
+            ).execute()
+
+            print(f"Уведомление отправлено на {user_email}")
+
+        except Exception as e:
+            print(f"Не удалось отправить email: {e}")
+
+        return f"drive_id:{uploaded_file.get('id')}"
+    
     except Exception as e:
-        print(f"❌ Ошибка загрузки в Google Drive: {e}")
+        print(f"Ошибка загрузки в Google Drive: {e}")
         return pdf_final_path

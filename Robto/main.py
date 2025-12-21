@@ -17,14 +17,17 @@ CLIENT_SECRETS_FILE = os.path.join(SCRIPT_DIR, 'oauth_client_secrets.json')
 TOKEN_FILE = os.path.join(SCRIPT_DIR, 'token.json')
 RPA_FOLDER_ID = '1zYG3lYaZRsHH_fzC_snGxYYPDJWleb4K'
 
-SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets']
+SCOPES = [
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/gmail.send'
+]
 
-# Флаг для graceful shutdown
 running = True
 
 def signal_handler(sig, frame):
     global running
-    print("\n🛑 Получен сигнал остановки. Завершаем цикл...")
+    print("\n Получен сигнал остановки. Завершаем цикл...")
     running = False
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -48,15 +51,15 @@ def get_oauth_services():
 
 def main():
     global running
-    print("🚀 Запуск RPA-монитора...")
+    print("Запуск RPA-монитора...")
     
     drive, sheets_service = get_oauth_services()
 
-    # Интервалы повтора (в секундах): 1 мин → 2 мин → 5 мин → 15 мин
+    # Интервалы повтора: 1 мин → 2 мин → 5 мин → 15 мин
     retry_delays = [60, 120, 300, 900]
     
     while running:
-        print(f"\n🕒 Цикл запуска: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"\n Цикл запуска: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         success = False
         retry_count = 0
 
@@ -64,14 +67,14 @@ def main():
             try:
                 success = process_requests(drive, sheets_service, RPA_FOLDER_ID)
                 if success:
-                    print("✅ Цикл завершён успешно")
+                    print("Цикл завершён успешно")
                     break
             except Exception as e:
-                print(f"💥 Необработанная ошибка: {e}")
+                print(f"Необработанная ошибка: {e}")
 
             if not success and running:
                 delay = retry_delays[retry_count]
-                print(f"⏳ Повтор через {delay // 60} мин...")
+                print(f"Повтор через {delay // 60} мин...")
                 time.sleep(delay)
                 retry_count += 1
 
@@ -80,12 +83,12 @@ def main():
 
         # Ждём 15 минут до следующего цикла (если не было ошибок)
         if success:
-            for _ in range(1 * 60):
+            for _ in range(15 * 60):
                 if not running:
                     break
                 time.sleep(1)
 
-    print("👋 RPA-монитор остановлен.")
+    print("RPA-монитор остановлен.")
 
 if __name__ == "__main__":
     main()

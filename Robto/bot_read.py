@@ -20,9 +20,9 @@ def process_requests(drive, sheets_service, rpa_folder_id):
 
     try:
         requests_folder_id = find_subfolder_by_name(rpa_folder_id, 'Заявки')
-        print(f"✅ Папка Заявки найдена (ID: {requests_folder_id})")
+        print(f"Папка Заявки найдена (ID: {requests_folder_id})")
     except Exception as e:
-        print(f"❌ Не найдена папка Заявок: {e}")
+        print(f"Не найдена папка Заявок: {e}")
         return False
 
     # Ищем заявки
@@ -34,18 +34,16 @@ def process_requests(drive, sheets_service, rpa_folder_id):
     result = drive.files().list(q=query, fields="files(id, name)", supportsAllDrives=True).execute()
     requests = result.get('files', [])
 
-    print(f"📄 Найдено заявок: {len(requests)}")
+    print(f"Найдено заявок: {len(requests)}")
     for req in requests:
         print(f"  - {req['name']} (ID: {req['id']})")
 
     if not requests:
-        print("🕗 Нет новых заявок.")
+        print("Нет новых заявок.")
         return True
 
     for req in requests:
         try:
-            # ... (вся логика обработки одной заявки: чтение, валидация, генерация)
-            # (скопируй целиком тело цикла из bot_read.py)
             sheet_id = req['id']
             file_name = req['name']
             sender_warehouse = file_name.split('-')[1]
@@ -90,7 +88,7 @@ def process_requests(drive, sheets_service, rpa_folder_id):
                 }
                 items.append(item)
 
-            # === ВАЛИДАЦИЯ ===
+            # --- ВАЛИДАЦИЯ ---
             ALLOWED_WAREHOUSES = {"СкладА", "СкладБ", "СкладВ", "СкладГ", "СкладД"}
             errors = []
 
@@ -104,7 +102,7 @@ def process_requests(drive, sheets_service, rpa_folder_id):
                 errors.append(("B3", "Приёмщик не указан"))
 
             for i, item in enumerate(items):
-                row_num = 7 + i
+                row_num = 6 + i
                 if not item["num"].strip():
                     errors.append((f"A{row_num}", "Пустой №"))
                 if not item["name"].strip():
@@ -117,8 +115,7 @@ def process_requests(drive, sheets_service, rpa_folder_id):
                     errors.append((f"E{row_num}", "Сумма отсутствует"))
 
             if errors:
-                # ... (обработка ошибок: переименование, покраска — скопируй из bot_read.py)
-                print(f"❌ Ошибок: {len(errors)}")
+                print(f"Ошибок: {len(errors)}")
                 for cell, msg in errors:
                     print(f"   → {cell}: {msg}")
 
@@ -167,7 +164,7 @@ def process_requests(drive, sheets_service, rpa_folder_id):
                     print("   → Ячейки закрашены (#ea4335)")
 
             else:
-                print("✅ Заявка прошла валидацию — начинаем генерацию накладной")
+                print("Заявка прошла валидацию — начинаем генерацию накладной")
                 pdf_path = generate_invoice(
                     sheet_id=sheet_id,
                     file_name=file_name,
@@ -181,14 +178,9 @@ def process_requests(drive, sheets_service, rpa_folder_id):
                     rpa_folder_id=rpa_folder_id
                 )
                 if not pdf_path or pdf_path.startswith("drive_id:"):
-                    print("✅ Успешно обработана")
+                    print("Успешно обработана")
 
-                    # === НОВОЕ: переименовать заявку в "Обработано..." ===
                     try:
-                        # Извлекаем дату из заявки (date_val) и склад из имени файла
-                        # Формат даты: "16.10.2025" → оставляем как есть
-                        # Имя файла: "Заявка 16.10.2025-СкладА" → sender_warehouse = "СкладА"
-
                         new_status_name = f"Обработано {date_val}-{sender_warehouse}"
                         file_meta = drive.files().get(fileId=sheet_id, fields="parents", supportsAllDrives=True).execute()
                         parents = file_meta.get("parents", [])
@@ -201,14 +193,14 @@ def process_requests(drive, sheets_service, rpa_folder_id):
                         ).execute()
                         print(f"   → Заявка переименована в: {new_status_name}")
                     except Exception as rename_err:
-                        print(f"⚠️ Не удалось переименовать заявку: {rename_err}")
+                        print(f"Не удалось переименовать заявку: {rename_err}")
 
                 else:
-                    print("❌ Ошибка генерации — будет повтор")
+                    print("Ошибка генерации — будет повтор")
                     return False
 
         except Exception as e:
-            print(f"⚠️ Ошибка при обработке заявки {req['name']}: {e}")
+            print(f"Ошибка при обработке заявки {req['name']}: {e}")
             return False
 
     return True
